@@ -1,0 +1,3230 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "d8cde772",
+   "metadata": {},
+   "source": [
+    "# Problem statement:-\n",
+    "\n",
+    "#### To reduce customer churn, telecom companies need to predict which customers are at high risk of churn. In this project, we will analyse customer-level data of a leading telecom firm, build predictive models to identify customers at high risk of churn and identify the main indicators of churn.\n",
+    "\n",
+    "##### Retaining high profitable customers is the main business goal here."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "176f0b42",
+   "metadata": {},
+   "source": [
+    "# Steps:-\n",
+    "\n",
+    "#### 1.Reading, understanding and visualising the data\n",
+    "\n",
+    "#### 2.Preparing the data for modelling\n",
+    "\n",
+    "#### 3.Building the model\n",
+    "\n",
+    "#### 4.Evaluate the model"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6dc16aad",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Importing packages\n",
+    "import numpy as np \n",
+    "import pandas as pd \n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "from sklearn.model_selection import GridSearchCV\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn import metrics\n",
+    "from sklearn.model_selection import KFold\n",
+    "from sklearn.ensemble import RandomForestClassifier\n",
+    "from sklearn.metrics import precision_score, recall_score\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "da5636de",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Setting format options to allow proper data display\n",
+    "pd.set_option('display.max_rows', 250)\n",
+    "pd.set_option('display.max_columns', 250)\n",
+    "pd.set_option('display.float_format', '{:.2f}'.format)\n",
+    "pd.set_option('display.max_colwidth', None)  # Set to None for unlimited column width\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4da15c96",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#importing data set\n",
+    "df = pd.read_csv('telecom_churn_data.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7d2a7ed4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2781aea9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e4f50fdb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.info(verbose=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "794316ce",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.describe().T"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9485ef77",
+   "metadata": {},
+   "source": [
+    "#### There are a lot of columns where the data is either highly skewed or where the data is the same value throughout Lets see further for some columns which we can drop"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "861aeedc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets check the columns with same values and drop such columns\n",
+    "same_val_col=[]\n",
+    "for i in df.columns:\n",
+    "    if df[i].nunique() == 1:\n",
+    "        same_val_col.append(i)\n",
+    "    else:\n",
+    "        pass\n",
+    "\n",
+    "df.drop(same_val_col, axis=1, inplace = True)\n",
+    "print(\"\\n The following Columns are dropped from the dataset as their unique value is 1, in short no variance for modelling \\n\",\n",
+    "      same_val_col)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "971277ae",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#Checking for null values\n",
+    "((df.isnull().sum()/df.shape[0])*100).round(2).sort_values(ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "07a6802f",
+   "metadata": {},
+   "source": [
+    "##### A lot of columns have more than 30% of null values"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b7b9fded",
+   "metadata": {},
+   "source": [
+    "#### As we can see that the columns with datetime values represented as object, they can be converted into datetime format"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "85f923eb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# selecting all the columns with datetime format\n",
+    "date_col= df.select_dtypes(include=['object'])\n",
+    "print(\"\\nThese are the columns available with datetime format represented as object\\n\",date_col.columns)\n",
+    "\n",
+    "# Converting the selected columns to datetime format\n",
+    "for i in date_col.columns:\n",
+    "    df[i] = pd.to_datetime(df[i])\n",
+    "\n",
+    "# Current dimension of the dataset\n",
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9f8e3e58",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# confirming the conversion of dtype\n",
+    "df.info(verbose=True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "822c0354",
+   "metadata": {},
+   "source": [
+    "# Missing Value Treatment\n",
+    "\n",
+    "\n",
+    "#### First we will try and find redundant columns to drop the data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "eeccb8b8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "((df.isnull().sum()/df.shape[0])*100).round(2).sort_values(ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "72c7f113",
+   "metadata": {},
+   "source": [
+    "###### The column fb_user_* and night_pck_user_* for each month from 6 to 9 respectively has a missing values above 50% and does not seem to add any information to understand the data. Hence we can drop these columns for further analysis."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9e80b929",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.drop(['fb_user_6','fb_user_7','fb_user_8','fb_user_9',\\\n",
+    "                  'night_pck_user_6','night_pck_user_7','night_pck_user_8','night_pck_user_9'],\\\n",
+    "                  axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "edf18e3c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#looking at columns with _6 months of data around recharges\n",
+    "df[['max_rech_data_6', 'count_rech_3g_6', 'count_rech_2g_6', 'arpu_3g_6', 'total_rech_data_6', 'av_rech_amt_data_6',\\\n",
+    "   'arpu_2g_6', 'date_of_last_rech_data_6', 'total_rech_num_6', 'total_rech_amt_6', 'max_rech_amt_6']].head(50)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "acc3fddf",
+   "metadata": {},
+   "source": [
+    "###### We can see, total_rech_data_6 is summation of count_rech_3g_6 and count_rech_2g_6 the same can be asssumed for total_rech_data_7 and _8 and _9"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "df8637d7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# thus dropping columns with count_rech_2g_* and count_rech_3g_*\n",
+    "df.drop(['count_rech_2g_6','count_rech_3g_6','count_rech_2g_7','count_rech_3g_7','count_rech_2g_8','count_rech_3g_8',\\\n",
+    "         'count_rech_2g_9','count_rech_3g_9'],axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "090fa8ae",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8c717c0e",
+   "metadata": {},
+   "source": [
+    "###### Ensuring if all columns (av_rech_amt_data, total_rech_data and date_of_last_rech_data) have null values together"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4fddbafa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.loc[(df.av_rech_amt_data_6.isna()) & (df.total_rech_data_6.isna())\\\n",
+    "       & (~df.date_of_last_rech_data_6.isna())][['total_rech_data_6','av_rech_amt_data_6',\\\n",
+    "                                                 'date_of_last_rech_data_6']].head(50)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a8ae20e8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.loc[(df.av_rech_amt_data_6.isna()) & (~df.total_rech_data_6.isna())\\\n",
+    "       & (df.date_of_last_rech_data_6.isna())][['total_rech_data_6','av_rech_amt_data_6',\\\n",
+    "                                                'date_of_last_rech_data_6']].head(50)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "51edf891",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.loc[(~df.av_rech_amt_data_6.isna()) & (df.total_rech_data_6.isna())\\\n",
+    "       & (df.date_of_last_rech_data_6.isna())][['av_rech_amt_data_6','total_rech_data_6',\\\n",
+    "                                                'date_of_last_rech_data_6']].head(50)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ea964740",
+   "metadata": {},
+   "source": [
+    "##### Thus from above we can confirm that max_rech_data_6, total_rech_data_6 and date_last_rech_data_6 are null when anyone is null, the same can be assumed for _7 _8 and _9 months"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c90464fa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#Thus filling null values with 0\n",
+    "df[['av_rech_amt_data_6', 'total_rech_data_6', 'av_rech_amt_data_7', 'total_rech_data_7', 'av_rech_amt_data_8',\\\n",
+    "    'total_rech_data_8','av_rech_amt_data_9',\\\n",
+    "    'total_rech_data_9']] = df[['av_rech_amt_data_6', 'total_rech_data_6', 'av_rech_amt_data_7', 'total_rech_data_7',\\\n",
+    "                                'av_rech_amt_data_8', 'total_rech_data_8','av_rech_amt_data_9',\\\n",
+    "                                'total_rech_data_9']].fillna(0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5a28aa9e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# validating pattern in arpu_2g and arpu_3g with avg_rech_amt_data\n",
+    "df[['arpu_3g_6','arpu_2g_6','av_rech_amt_data_6']].head(50)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "319aa904",
+   "metadata": {},
+   "source": [
+    "#### Since there is no summation or average pattern we should check for correlation to omit multi colinearity"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2e5a9ba5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# identifying correlation:\n",
+    "print('_6')\n",
+    "print(df[['arpu_3g_6','arpu_2g_6','av_rech_amt_data_6']].corr())\n",
+    "\n",
+    "print('\\n _7')\n",
+    "print(df[['arpu_3g_7','arpu_2g_7','av_rech_amt_data_7']].corr())\n",
+    "\n",
+    "print('\\n _8')\n",
+    "print(df[['arpu_3g_8','arpu_2g_8','av_rech_amt_data_8']].corr())\n",
+    "\n",
+    "print('\\n _9')\n",
+    "print(df[['arpu_3g_9','arpu_2g_9','av_rech_amt_data_9']].corr())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "11e43e41",
+   "metadata": {},
+   "source": [
+    "###### arpu_2g_* and arpu_3g_* are highly correlated with av_rech_amt_data_*, thus we can drop the former"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8947cae8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Dropping the columns 'arpu_3g_*'&'arpu_2g_*'\n",
+    "df.drop(['arpu_3g_6','arpu_2g_6','arpu_3g_7','arpu_2g_7','arpu_3g_8','arpu_2g_8','arpu_3g_9','arpu_2g_9'],axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "db7ae5f9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b6ace4b1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Checkng the overall missing values in the dataset\n",
+    "((df.isnull().sum()/df.shape[0])*100).round(2).sort_values(ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8280d533",
+   "metadata": {},
+   "source": [
+    "#### Thus number of columns with more than 30% of missing data have been reduced, further we can drop date_of_last_rech_data_* as it provides no use for our analysis"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "55179835",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.drop([\"date_of_last_rech_data_6\",\"date_of_last_rech_data_7\",\\\n",
+    "         \"date_of_last_rech_data_8\",\"date_of_last_rech_data_9\",\\\n",
+    "         \"date_of_last_rech_6\",\"date_of_last_rech_7\",\\\n",
+    "         \"date_of_last_rech_8\",\"date_of_last_rech_9\"], axis=1, inplace=True)\n",
+    "\n",
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fefc8aea",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#filling na for max_rech_data_* as their values are also 0 when total_rech__dat_* is 0\n",
+    "df[['max_rech_data_6', 'max_rech_data_7', 'max_rech_data_8',\\\n",
+    "    'max_rech_data_9']] = df[['max_rech_data_6', 'max_rech_data_7', 'max_rech_data_8',\\\n",
+    "                              'max_rech_data_9']].fillna(0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "689a3073",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#Checking for null values\n",
+    "((df.isnull().sum()/df.shape[0])*100).round(2).sort_values(ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "04bb6844",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0a6c9527",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.describe().T"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5764693b",
+   "metadata": {},
+   "source": [
+    "# Filtering the High Value Customer \n",
+    "\n",
+    "\n",
+    "#### Creating column avg_rech_amt_6_7 by summing up total recharge amount of month 6 and 7. Then taking the average of the sum."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9a7bbacd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Filtering the data \n",
+    "#recharge amt is of total amt and total data amount, from the two we can find:\n",
+    "df['avg_rech_amt_6_7'] = ((df['av_rech_amt_data_6']*df['total_rech_data_6']+df['total_rech_amt_6'])\\\n",
+    "                          +(df['av_rech_amt_data_7']*df['total_rech_data_7']+df['total_rech_amt_7']))/2\n",
+    "\n",
+    "# Finding the value of 70th percentage in the overall revenues defining the high value customer creteria for the company\n",
+    "cut_off = df['avg_rech_amt_6_7'].quantile(0.70)\n",
+    "print(\"\\nThe 70th quantile value to determine the High Value Customer is: \",cut_off,\"\\n\")\n",
+    "\n",
+    "# Filtering the data to the top 30% considered as High Value Customer\n",
+    "df = df[df['avg_rech_amt_6_7'] >= cut_off]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5615ca0d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "07f4dcea",
+   "metadata": {},
+   "source": [
+    "#### We can see that we have around ~30K rows after filtering\n",
+    "\n",
+    "#### Since we still have null values, we can impute the same using KNI imputer"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6d966085",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Importing the libraries for Scaling and Imputation\n",
+    "from sklearn.impute import KNNImputer\n",
+    "from sklearn.preprocessing import MinMaxScaler\n",
+    "\n",
+    "num_col = df.select_dtypes(include = ['int64','float64']).columns.tolist()\n",
+    "# Calling the Scaling function\n",
+    "scalar = MinMaxScaler()\n",
+    "\n",
+    "# Scaling and transforming the data for the columns that are numerical\n",
+    "df[num_col]=scalar.fit_transform(df[num_col])\n",
+    "\n",
+    "# Calling the KNN Imputer function\n",
+    "knn=KNNImputer(n_neighbors=3)\n",
+    "\n",
+    "\n",
+    "\n",
+    "telecom_data_knn = pd.DataFrame(knn.fit_transform(df[num_col]))\n",
+    "telecom_data_knn.columns=df[num_col].columns"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "587612ee",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# check for any null values after imputation for numerical columns\n",
+    "telecom_data_knn.isnull().sum().sum()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a9f5ef5a",
+   "metadata": {},
+   "source": [
+    "#### The KNN Imputer has replaced all the null values in the numerical column usingK-means algorithm sucessfully"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "23389545",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Since we sclaed the numerical columns for the purpose of handling the null values, \n",
+    "#we can restore the sclaed alues to its original form.\n",
+    "\n",
+    "# Converting the scaled data back to the original data\n",
+    "df[num_col]=scalar.inverse_transform(telecom_data_knn)\n",
+    "\n",
+    "# Checking the top 10 data\n",
+    "df.head(10)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c5c650b9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "498682ca",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Checking the overall missing values in the dataset\n",
+    "((df.isnull().sum()/df.shape[0])*100).round(2).sort_values(ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e2746910",
+   "metadata": {},
+   "source": [
+    "##### Now that all missing values are treated appropriately, we can go ahead with some analysis"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9d52b575",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.describe().T"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "87359d1a",
+   "metadata": {},
+   "source": [
+    "# Defining Churn variable"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "489ae646",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Selecting the columns to define churn variable (i.e. TARGET Variable)\n",
+    "churn_col=['total_ic_mou_9', 'total_og_mou_9', 'vol_2g_mb_9', 'vol_3g_mb_9']\n",
+    "missing_cols = [col for col in churn_col if col not in df.columns]\n",
+    "\n",
+    "if missing_cols:\n",
+    "    print(f\"Missing columns: {missing_cols}\")\n",
+    "else:\n",
+    "    df[churn_col].info()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5497abaa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Initializing the churn variable.\n",
+    "df['churn']=0\n",
+    "\n",
+    "# Imputing the churn values based on the condition\n",
+    "df['churn'] = np.where(df[churn_col].sum(axis=1) == 0, 1, 0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1170ab99",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets find out churn/non churn percentage\n",
+    "print((df['churn'].value_counts()/len(df))*100)\n",
+    "((df['churn'].value_counts()/len(df))*100).plot(kind=\"pie\")\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cf6270c8",
+   "metadata": {},
+   "source": [
+    "#### As we can see that 91% of the customers do not churn, there is a possibility of class imbalance Since this variable churn is the target variable, all the columns relating to this variable(i.e. all columns with suffix _9) can be dropped forn the dataset."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3745724c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Selecting all the churn phase columns in order to drop then\n",
+    "\n",
+    "churn_phase_cols = [col for col in df.columns if '_9' in col]\n",
+    "print(\"The columns from churn phase are:\\n\",churn_phase_cols)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "69eb8876",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Dropping the selected churn phase columns\n",
+    "df.drop(churn_phase_cols, axis=1, inplace=True)\n",
+    "\n",
+    "# The curent dimension of the dataset after dropping the churn related columns\n",
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8d5c43ce",
+   "metadata": {},
+   "source": [
+    "##### We can still clean the data by few possible columns relating to the good phase."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "609f8dff",
+   "metadata": {},
+   "source": [
+    "##### As we derived few columns in the good phase earlier, we can drop those related columns during creation."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fa9b5ba9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "\n",
+    "\n",
+    "df.drop(['total_rech_data_6','av_rech_amt_data_6', 'total_rech_amt_6','total_rech_amt_7',\\\n",
+    "         'total_rech_data_7','av_rech_amt_data_7'], axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9a1dcf02",
+   "metadata": {},
+   "source": [
+    "#### Before proceding to check the remaining missing value handling, let us check the collineartity of the indepedent variables and try to understand their dependencies."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "93b46fa9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# creating a list of column names for each month\n",
+    "mon_6_cols = [col for col in df.columns if '_6' in col]\n",
+    "mon_7_cols = [col for col in df.columns if '_7' in col]\n",
+    "mon_8_cols = [col for col in df.columns if '_8' in col]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9ff4d06e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets check the correlation amongst the independent variables, drop the highly correlated ones\n",
+    "telecom_data_corr = df.corr()\n",
+    "telecom_data_corr.loc[:,:] = np.tril(telecom_data_corr, k=-1)\n",
+    "telecom_data_corr = telecom_data_corr.stack()\n",
+    "telecom_data_corr\n",
+    "telecom_data_corr[(telecom_data_corr > 0.80) | (telecom_data_corr < -0.80)].sort_values(ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "001d5bcb",
+   "metadata": {},
+   "source": [
+    "##### Dropping date columns as they are no use for the analysis"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "47801fd2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "col_to_drop=['total_rech_amt_8','isd_og_mou_8','isd_og_mou_7','sachet_2g_8','total_ic_mou_6',\\\n",
+    "             'total_ic_mou_8','total_ic_mou_7','std_og_t2t_mou_6','std_og_t2t_mou_8','std_og_t2t_mou_7',\\\n",
+    "             'std_og_t2m_mou_7','std_og_t2m_mou_8']\n",
+    "\n",
+    "# These columns can be dropped as they are highly collinered with other predictor variables.\n",
+    "# criteria set is for collinearity of 85%\n",
+    "\n",
+    "#  dropping these column\n",
+    "df.drop(col_to_drop, axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "dbaea77f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# The curent dimension of the dataset after dropping few unwanted columns\n",
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6f11dad0",
+   "metadata": {},
+   "source": [
+    "# Deriving new variables to understand the data and some EDA"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0332664f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# We have a column called 'aon'\n",
+    "\n",
+    "# we can derive new variables from this to explain the data w.r.t churn.\n",
+    "\n",
+    "# creating a new variable 'tenure'\n",
+    "df['tenure'] = (df['aon']/30).round(0)\n",
+    "\n",
+    "# Since we derived a new column from 'aon', we can drop it\n",
+    "df.drop('aon',axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d31aa071",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Checking the distribution of he tenure variable\n",
+    "\n",
+    "sns.distplot(df['tenure'],bins=30)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c82a68ec",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "tn_range = [0, 6, 12, 24, 60, 61]\n",
+    "tn_label = [ '0-6 Months', '6-12 Months', '1-2 Yrs', '2-5 Yrs', '5 Yrs and above']\n",
+    "df['tenure_range'] = pd.cut(df['tenure'], tn_range, labels=tn_label)\n",
+    "df['tenure_range'].head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8ba4382f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Plotting a bar plot for tenure range\n",
+    "plt.figure(figsize=[12,7])\n",
+    "sns.barplot(x='tenure_range',y='churn', data=df)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "df367be1",
+   "metadata": {},
+   "source": [
+    "### It can be seen that the maximum churn rate happens within 0-6 month, but it gradually decreases as the customer retains in the network."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "eaef04cc",
+   "metadata": {},
+   "source": [
+    "##### The average revenue per user is good phase of customer is given by arpu_6 and arpu_7. since we have two seperate averages, lets take an average to these two and drop the other columns."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2deac46a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df[\"avg_arpu_6_7\"]= (df['arpu_6']+df['arpu_7'])/2\n",
+    "df['avg_arpu_6_7'].head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "05efb1f6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Lets drop the original columns as they are derived to a new column for better understanding of the data\n",
+    "\n",
+    "df.drop(['arpu_6','arpu_7'], axis=1, inplace=True)\n",
+    "\n",
+    "\n",
+    "# The curent dimension of the dataset after dropping few unwanted columns\n",
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2fcb9826",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Visualizing the column created\n",
+    "sns.distplot(df['avg_arpu_6_7'])\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "34988c98",
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "# Import necessary libraries\n",
+    "import pandas as pd\n",
+    "import seaborn as sns\n",
+    "import matplotlib.pyplot as plt\n",
+    "from sklearn.preprocessing import LabelEncoder\n",
+    "\n",
+    "# Assuming you already have your original dataframe loaded as 'df'\n",
+    "# Make sure 'df_encoded' is defined and contains the necessary data\n",
+    "df_encoded = df.copy()  # Replace with actual encoded dataframe\n",
+    "\n",
+    "# Checking data types of all columns to identify any remaining non-numeric types\n",
+    "print(df_encoded.dtypes)\n",
+    "\n",
+    "# Checking unique values in potentially problematic columns\n",
+    "for col in df_encoded.columns:\n",
+    "    if df_encoded[col].dtype == 'object' or str(df_encoded[col].dtype) == 'category':\n",
+    "        print(f\"Column '{col}' has the following unique values: {df_encoded[col].unique()}\")\n",
+    "\n",
+    "# Applying LabelEncoder again if needed\n",
+    "label_encoder = LabelEncoder()\n",
+    "for col in df_encoded.columns:\n",
+    "    if df_encoded[col].dtype == 'object' or str(df_encoded[col].dtype) == 'category':\n",
+    "        df_encoded[col] = label_encoder.fit_transform(df_encoded[col].astype(str))\n",
+    "\n",
+    "# Now plotting the heatmap again\n",
+    "if 'churn' in df_encoded.columns:\n",
+    "    plt.figure(figsize=(10, 50))\n",
+    "    heatmap_churn = sns.heatmap(df_encoded.corr()[['churn']].sort_values(ascending=False, by='churn'),\n",
+    "                                annot=True, cmap='summer')\n",
+    "    heatmap_churn.set_title(\"Features Correlating with Churn variable\", fontsize=15)\n",
+    "    plt.show()\n",
+    "else:\n",
+    "    print(\"The 'churn' column is missing from the dataframe.\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f0c23d81",
+   "metadata": {},
+   "source": [
+    "##### Avg Outgoing Calls & calls on romaning for 6 & 7th months are positively correlated with churn. Avg Revenue, No. Of Recharge for 8th month has negative correlation with churn."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "77cf1c9c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets now draw a scatter plot between total recharge and avg revenue for the 8th month\n",
+    "df[['total_rech_num_8', 'arpu_8']].plot.scatter(x = 'total_rech_num_8',\n",
+    "                                                              y='arpu_8')\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e3bd51f1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "sns.boxplot(x = df.churn, y = df.tenure)\n",
+    "\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "13de6e14",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Plot between churn vs max rechare amount\n",
+    "ax = sns.kdeplot(df.max_rech_amt_8[(df[\"churn\"] == 0)],\n",
+    "                color=\"Red\", shade = True)\n",
+    "ax = sns.kdeplot(df.max_rech_amt_8[(df[\"churn\"] == 1)],\n",
+    "                ax =ax, color=\"Blue\", shade= True)\n",
+    "ax.legend([\"No-Churn\",\"Churn\"],loc='upper right')\n",
+    "ax.set_ylabel('Density')\n",
+    "ax.set_xlabel('Volume based cost')\n",
+    "ax.set_title('Distribution of Max Recharge Amount by churn')\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bca96b54",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Creating categories for month 8 column totalrecharge and their count\n",
+    "df['total_rech_num_group_8']=pd.cut(df['total_rech_num_8'],[-1,0,10,25,1000],labels=[\"No_Recharge\",\"<=10_Recharges\",\"10-25_Recharges\",\">25_Recharges\"])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5ccf6062",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#plotting the results\n",
+    "plt.figure(figsize=[12,4])\n",
+    "sns.countplot(data=df,x=\"total_rech_num_group_8\",hue=\"churn\")\n",
+    "print(\"\\t\\t\\t\\t\\tDistribution of total_rech_num_8 variable\\n\",df['total_rech_num_group_8'].value_counts())\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f0950a7a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df['total_rech_data_group_8']=pd.cut(df['total_rech_data_8'],[-1,0,10,25,100],labels=[\"No_Recharge\",\"<=10_Recharges\",\"10-25_Recharges\",\">25_Recharges\"])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a4500dc1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#plotting the results\n",
+    "plt.figure(figsize=[12,4])\n",
+    "sns.countplot(data=df,x=\"total_rech_data_group_8\",hue=\"churn\")\n",
+    "print(\"\\t\\t\\t\\t\\tDistribution of total_rech_data_group_8 variable\\n\",df['total_rech_data_group_8'].value_counts())\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "464dc43d",
+   "metadata": {},
+   "source": [
+    "##### As the number of recharge rate increases, the churn rate decreases clearly."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8bd5b65f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# create box plot for  6th, 7th and 8th month\n",
+    "def plot_box_chart(attribute):\n",
+    "    plt.figure(figsize=(20,16))\n",
+    "    df = telecom_df_high_val_cust\n",
+    "    plt.subplot(2,3,1)\n",
+    "    sns.boxplot(data=df, y=attribute+\"_6\",x=\"churn\",hue=\"churn\",\n",
+    "                showfliers=False)\n",
+    "    plt.subplot(2,3,2)\n",
+    "    sns.boxplot(data=df, y=attribute+\"_7\",x=\"churn\",hue=\"churn\",\n",
+    "                showfliers=False)\n",
+    "    plt.subplot(2,3,3)\n",
+    "    sns.boxplot(data=df, y=attribute+\"_8\",x=\"churn\",hue=\"churn\",\n",
+    "                showfliers=False)\n",
+    "    plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6de5f863",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#Further seeing the churn wrt to the good phase and action phase based on recharge amount\n",
+    "\n",
+    "recharge_amnt_columns =  df.columns[df.columns.str.contains('rech_amt')]\n",
+    "recharge_amnt_columns.tolist()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "91c8dbaf",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "sns.boxplot(data=df, y='max_rech_amt_6',x=\"churn\",hue=\"churn\", showfliers=False)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b51c04cb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "sns.boxplot(data=df, y='max_rech_amt_7',x=\"churn\",hue=\"churn\", showfliers=False)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "20eb5028",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "sns.boxplot(data=df, y='max_rech_amt_8',x=\"churn\",hue=\"churn\", showfliers=False)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2ebd1552",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "sns.boxplot(data=df, y='av_rech_amt_data_8',x=\"churn\",hue=\"churn\", showfliers=False)\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9ba65009",
+   "metadata": {},
+   "source": [
+    "##### From the above charts we can see a drop in the total recharge amount for churned customers in the 8th Month (Action Phase)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "03f66395",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Creating a dummy variable for some of the categorical variables and dropping the first one.\n",
+    "dummy = pd.get_dummies(df[['total_rech_data_group_8','total_rech_num_group_8','tenure_range']], drop_first=True)\n",
+    "dummy.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ca724ed1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Adding the results to the master dataframe\n",
+    "df = pd.concat([df, dummy], axis=1)\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2786867d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Dropping unwanted columns\n",
+    "df.drop(['tenure_range','mobile_number','total_rech_data_group_8','total_rech_num_group_8',\\\n",
+    "         'sep_vbc_3g','tenure'], axis=1, inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3ccdba26",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Cheking the dataset\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "763a44f1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cd57a612",
+   "metadata": {},
+   "source": [
+    "#### Creating X and y"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "52e8399e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets create X dataset for model building.\n",
+    "X = df.drop(['churn'],axis=1)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "068b45e9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets create y dataset for model building.\n",
+    "y=df['churn']"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bb59db03",
+   "metadata": {},
+   "source": [
+    "## Splitting the data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c56d6443",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# split the dateset into train and test datasets\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, train_size=0.7, random_state=1)\n",
+    "print(\"Dimension of X_train:\", X_train.shape)\n",
+    "print(\"Dimension of X_test:\", X_test.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ebe26de6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "num_col = X_train.select_dtypes(include = ['int64','float64']).columns.tolist()\n",
+    "# apply scaling on the dataset\n",
+    "from sklearn import preprocessing\n",
+    "from sklearn.preprocessing import MinMaxScaler\n",
+    "\n",
+    "scaler = MinMaxScaler()\n",
+    "X_train[num_col] = scaler.fit_transform(X_train[num_col])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0e46d9e4",
+   "metadata": {},
+   "source": [
+    "## Data Imbalance Handling\n",
+    "\n",
+    "\n",
+    "###### Using SMOTE method, we can balance the data w.r.t. churn variable and proceed further"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "57f59e8c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "pip install --upgrade imbalanced-learn\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ad7e94a6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from imblearn.over_sampling import SMOTE\n",
+    "sm = SMOTE(random_state=42)\n",
+    "X_train_sm,y_train_sm = sm.fit_resample(X_train,y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ccdce1a4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print(\"Dimension of X_train_sm Shape:\", X_train_sm.shape)\n",
+    "print(\"Dimension of y_train_sm Shape:\", y_train_sm.shape)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "83915762",
+   "metadata": {},
+   "source": [
+    "## Logistic Regression"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "66f73b17",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Importing necessary libraries for Model creation\n",
+    "import statsmodels.api as sm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c2e43fb7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Logistic regression model\n",
+    "logm1 = sm.GLM(y_train_sm,(sm.add_constant(X_train_sm)), family = sm.families.Binomial())\n",
+    "logm1.fit().summary()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a9505dd5",
+   "metadata": {},
+   "source": [
+    "## Logistic Regression using Feature Selection (RFE method)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f448dad5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.linear_model import LogisticRegression\n",
+    "logreg = LogisticRegression()\n",
+    "\n",
+    "from sklearn.feature_selection import RFE\n",
+    "\n",
+    "# running RFE with 20 variables as output\n",
+    "rfe = RFE(logreg,  n_features_to_select=20)             \n",
+    "rfe = rfe.fit(X_train_sm, y_train_sm)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a32c7c8f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "rfe.support_"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "72a70b0e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "rfe_columns=X_train_sm.columns[rfe.support_]\n",
+    "print(\"The selected columns by RFE for modelling are: \\n\\n\",rfe_columns)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0622c344",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "list(zip(X_train_sm.columns, rfe.support_, rfe.ranking_))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c6b20604",
+   "metadata": {},
+   "source": [
+    "### Assessing the model with StatsModels"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ca2c14c5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X_train_SM = sm.add_constant(X_train_sm[rfe_columns])\n",
+    "logm2 = sm.GLM(y_train_sm,X_train_SM, family = sm.families.Binomial())\n",
+    "res = logm2.fit()\n",
+    "res.summary()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c205d90a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "rfe_columns = list(rfe_columns)  # Convert to a list if it isn't already\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "29321917",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "missing_columns = [col for col in rfe_columns if col not in X_train_sm.columns]\n",
+    "if missing_columns:\n",
+    "    print(f\"The following columns are missing from X_train_sm: {missing_columns}\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ef0ad5d0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import statsmodels.api as sm\n",
+    "\n",
+    "# Add constant and fit model\n",
+    "try:\n",
+    "    X_train_SM = sm.add_constant(X_train_sm[rfe_columns])  # Ensure rfe_columns are in X_train_sm\n",
+    "    logm2 = sm.GLM(y_train_sm, X_train_SM, family=sm.families.Binomial())\n",
+    "    res = logm2.fit()\n",
+    "    print(res.summary())\n",
+    "except Exception as e:\n",
+    "    print(f\"Error encountered: {e}\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a885a42f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Ensure 'rfe_columns' is a list and remove the column if it exists\n",
+    "if 'loc_ic_t2t_mou_8' in rfe_columns:\n",
+    "    rfe_columns.remove('loc_ic_t2t_mou_8')\n",
+    "\n",
+    "rfe_columns_1 = rfe_columns  # Assign the updated list\n",
+    "print(\"\\nThe new set of edited features are:\\n\", rfe_columns_1)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "16cb246e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Training the model with the edited feature list\n",
+    "X_train_SM = sm.add_constant(X_train_sm[rfe_columns_1])\n",
+    "logm2 = sm.GLM(y_train_sm,X_train_SM, family = sm.families.Binomial())\n",
+    "res = logm2.fit()\n",
+    "res.summary()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e379c6a2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Create a new list excluding 'loc_ic_t2m_mou_8'\n",
+    "rfe_columns_2 = [col for col in rfe_columns_1 if col != 'loc_ic_t2m_mou_8']\n",
+    "\n",
+    "print(\"\\nThe new set of edited features are:\\n\", rfe_columns_2)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "caea2094",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Training the model with the edited feature list\n",
+    "X_train_SM = sm.add_constant(X_train_sm[rfe_columns_2])\n",
+    "logm2 = sm.GLM(y_train_sm,X_train_SM, family = sm.families.Binomial())\n",
+    "res = logm2.fit()\n",
+    "res.summary()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1ccd32aa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Getting the predicted values on the train set\n",
+    "y_train_sm_pred = res.predict(X_train_SM)\n",
+    "y_train_sm_pred = y_train_sm_pred.values.reshape(-1)\n",
+    "y_train_sm_pred[:10]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d31fb53a",
+   "metadata": {},
+   "source": [
+    "## Creating a dataframe with the actual churn flag and the predicted probabilities"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "95534c8a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_train_sm_pred_final = pd.DataFrame({'Converted':y_train_sm.values, 'Converted_prob':y_train_sm_pred})\n",
+    "y_train_sm_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f6d17b40",
+   "metadata": {},
+   "source": [
+    "## Creating new column 'churn_pred' with 1 if Churn_Prob > 0.5 else 0"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e9e3df1b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_train_sm_pred_final['churn_pred'] = y_train_sm_pred_final.Converted_prob.map(lambda x: 1 if x > 0.5 else 0)\n",
+    "\n",
+    "# Viewing the prediction results\n",
+    "y_train_sm_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8036bf2e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn import metrics\n",
+    "\n",
+    "# Confusion matrix \n",
+    "confusion = metrics.confusion_matrix(y_train_sm_pred_final.Converted, y_train_sm_pred_final.churn_pred )\n",
+    "print(confusion)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c1139d27",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Checking the overall accuracy.\n",
+    "print(\"The overall accuracy of the model is:\",metrics.accuracy_score(y_train_sm_pred_final.Converted, y_train_sm_pred_final.churn_pred))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4248823c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Check for the VIF values of the feature variables. \n",
+    "from statsmodels.stats.outliers_influence import variance_inflation_factor"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "84e10e60",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Create a dataframe that will contain the names of all the feature variables and their respective VIFs\n",
+    "vif = pd.DataFrame()\n",
+    "vif['Features'] = X_train_sm[rfe_columns_2].columns\n",
+    "vif['VIF'] = [variance_inflation_factor(X_train_sm[rfe_columns].values, i) for i in range(X_train_sm[rfe_columns_2].shape[1])]\n",
+    "vif['VIF'] = round(vif['VIF'], 2)\n",
+    "vif = vif.sort_values(by = \"VIF\", ascending = False)\n",
+    "vif"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e5649ce9",
+   "metadata": {},
+   "source": [
+    "## Metrics beyond simply accuracy"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ea7fb032",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "TP = confusion[1,1] # true positive \n",
+    "TN = confusion[0,0] # true negatives\n",
+    "FP = confusion[0,1] # false positives\n",
+    "FN = confusion[1,0] # false negatives"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "838e8946",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Let's see the sensitivity of our logistic regression model\n",
+    "print(\"Sensitivity = \",TP / float(TP+FN))\n",
+    "\n",
+    "# Let us calculate specificity\n",
+    "print(\"Specificity = \",TN / float(TN+FP))\n",
+    "\n",
+    "# Calculate false postive rate - predicting churn when customer does not have churned\n",
+    "print(\"False Positive Rate = \",FP/ float(TN+FP))\n",
+    "\n",
+    "# positive predictive value \n",
+    "print (\"Precision = \",TP / float(TP+FP))\n",
+    "\n",
+    "# Negative predictive value\n",
+    "print (\"True Negative Prediction Rate = \",TN / float(TN+ FN))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d2dc7c5e",
+   "metadata": {},
+   "source": [
+    "## Plotting the ROC Curve"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2994888d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Defining a function to plot the roc curve\n",
+    "def draw_roc( actual, probs ):\n",
+    "    fpr, tpr, thresholds = metrics.roc_curve( actual, probs,\n",
+    "                                              drop_intermediate = False )\n",
+    "    auc_score = metrics.roc_auc_score( actual, probs )\n",
+    "    plt.figure(figsize=(5, 5))\n",
+    "    plt.plot( fpr, tpr, label='ROC curve (area = %0.2f)' % auc_score )\n",
+    "    plt.plot([0, 1], [0, 1], 'k--')\n",
+    "    plt.xlim([0.0, 1.0])\n",
+    "    plt.ylim([0.0, 1.05])\n",
+    "    plt.xlabel('False Positive Rate or [1 - True Negative Prediction Rate]')\n",
+    "    plt.ylabel('True Positive Rate')\n",
+    "    plt.title('Receiver operating characteristic example')\n",
+    "    plt.legend(loc=\"lower right\")\n",
+    "    plt.show()\n",
+    "\n",
+    "    return None"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "50e0b6c8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Defining the variables to plot the curve\n",
+    "fpr, tpr, thresholds = metrics.roc_curve( y_train_sm_pred_final.Converted, y_train_sm_pred_final.Converted_prob, drop_intermediate = False )"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8b838be5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Plotting the curve for the obtained metrics\n",
+    "draw_roc(y_train_sm_pred_final.Converted, y_train_sm_pred_final.Converted_prob)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "729e1a72",
+   "metadata": {},
+   "source": [
+    "## Finding Optimal Cutoff Point"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "622c8732",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Let's create columns with different probability cutoffs \n",
+    "numbers = [float(x)/10 for x in range(10)]\n",
+    "for i in numbers:\n",
+    "    y_train_sm_pred_final[i]= y_train_sm_pred_final.Converted_prob.map(lambda x: 1 if x > i else 0)\n",
+    "y_train_sm_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "12eaf599",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Now let's calculate accuracy sensitivity and specificity for various probability cutoffs.\n",
+    "cutoff_df = pd.DataFrame( columns = ['probability','accuracy','sensitivity','specificity'])\n",
+    "from sklearn.metrics import confusion_matrix\n",
+    "\n",
+    "# TP = confusion[1,1] # true positive \n",
+    "# TN = confusion[0,0] # true negatives\n",
+    "# FP = confusion[0,1] # false positives\n",
+    "# FN = confusion[1,0] # false negatives\n",
+    "\n",
+    "num = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]\n",
+    "for i in num:\n",
+    "    cm1 = metrics.confusion_matrix(y_train_sm_pred_final.Converted, y_train_sm_pred_final[i] )\n",
+    "    total1=sum(sum(cm1))\n",
+    "    accuracy = (cm1[0,0]+cm1[1,1])/total1\n",
+    "    \n",
+    "    specificity = cm1[0,0]/(cm1[0,0]+cm1[0,1])\n",
+    "    sensitivity = cm1[1,1]/(cm1[1,0]+cm1[1,1])\n",
+    "    cutoff_df.loc[i] =[ i ,accuracy,sensitivity,specificity]\n",
+    "print(cutoff_df)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "98abcc3a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# plotting accuracy sensitivity and specificity for various probabilities calculated above.\n",
+    "cutoff_df.plot.line(x='probability', y=['accuracy','sensitivity','specificity'])\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e5205758",
+   "metadata": {},
+   "source": [
+    "##### Initially we selected the optimm point of classification as 0.5.\n",
+    "\n",
+    "\n",
+    "##### From the above graph, we can see the optimum cutoff is slightly higher than 0.5 but lies lower than 0.6. So lets tweek a little more within this range."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c7138287",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Let's create columns with refined probability cutoffs \n",
+    "numbers = [0.50,0.51,0.52,0.53,0.54,0.55,0.56,0.57,0.58,0.59]\n",
+    "for i in numbers:\n",
+    "    y_train_sm_pred_final[i]= y_train_sm_pred_final.Converted_prob.map(lambda x: 1 if x > i else 0)\n",
+    "y_train_sm_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "76aa404e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Now let's calculate accuracy sensitivity and specificity for various probability cutoffs.\n",
+    "cutoff_df = pd.DataFrame( columns = ['probability','accuracy','sensitivity','specificity'])\n",
+    "from sklearn.metrics import confusion_matrix\n",
+    "\n",
+    "# TP = confusion[1,1] # true positive \n",
+    "# TN = confusion[0,0] # true negatives\n",
+    "# FP = confusion[0,1] # false positives\n",
+    "# FN = confusion[1,0] # false negatives\n",
+    "\n",
+    "num = [0.50,0.51,0.52,0.53,0.54,0.55,0.56,0.57,0.58,0.59]\n",
+    "for i in num:\n",
+    "    cm1 = metrics.confusion_matrix(y_train_sm_pred_final.Converted, y_train_sm_pred_final[i] )\n",
+    "    total1=sum(sum(cm1))\n",
+    "    accuracy = (cm1[0,0]+cm1[1,1])/total1\n",
+    "    \n",
+    "    specificity = cm1[0,0]/(cm1[0,0]+cm1[0,1])\n",
+    "    sensitivity = cm1[1,1]/(cm1[1,0]+cm1[1,1])\n",
+    "    cutoff_df.loc[i] =[ i ,accuracy,sensitivity,specificity]\n",
+    "print(cutoff_df)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6f03f19d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# plotting accuracy sensitivity and specificity for various probabilities calculated above.\n",
+    "cutoff_df.plot.line(x='probability', y=['accuracy','sensitivity','specificity'])\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6375692b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# From the curve above, 0.2 is the optimum point to take it as a cutoff probability.\n",
+    "\n",
+    "y_train_sm_pred_final['final_churn_pred'] = y_train_sm_pred_final.Converted_prob.map( lambda x: 1 if x > 0.54 else 0)\n",
+    "\n",
+    "y_train_sm_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "94efa9b0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Calculating the ovearall accuracy again\n",
+    "print(\"The overall accuracy of the model now is:\",metrics.accuracy_score(y_train_sm_pred_final.Converted, y_train_sm_pred_final.final_churn_pred))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "c90cbe4f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "confusion2 = metrics.confusion_matrix(y_train_sm_pred_final.Converted, y_train_sm_pred_final.final_churn_pred )\n",
+    "print(confusion2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ee76116e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "TP2 = confusion2[1,1] # true positive \n",
+    "TN2 = confusion2[0,0] # true negatives\n",
+    "FP2 = confusion2[0,1] # false positives\n",
+    "FN2 = confusion2[1,0] # false negatives\n",
+    "\n",
+    "# Let's see the sensitivity of our logistic regression model\n",
+    "print(\"Sensitivity = \",TP2 / float(TP2+FN2))\n",
+    "\n",
+    "# Let us calculate specificity\n",
+    "print(\"Specificity = \",TN2 / float(TN2+FP2))\n",
+    "\n",
+    "# Calculate false postive rate - predicting churn when customer does not have churned\n",
+    "print(\"False Positive Rate = \",FP2/ float(TN2+FP2))\n",
+    "\n",
+    "# positive predictive value \n",
+    "print (\"Precision = \",TP2 / float(TP2+FP2))\n",
+    "\n",
+    "# Negative predictive value\n",
+    "print (\"True Negative Prediction Rate = \",TN2 / float(TN2 + FN2))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dbabc7e5",
+   "metadata": {},
+   "source": [
+    "## Precision and recall tradeoff"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "868268a2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.metrics import precision_recall_curve"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f4cccfc1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "p, r, thresholds = precision_recall_curve(y_train_sm_pred_final.Converted, y_train_sm_pred_final.Converted_prob)\n",
+    "\n",
+    "# Plotting the curve\n",
+    "plt.plot(thresholds, p[:-1], \"g-\")\n",
+    "plt.plot(thresholds, r[:-1], \"r-\")\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b6d62a0f",
+   "metadata": {},
+   "source": [
+    "## Making predictions on the test set"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "00e3d1cd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Scaling the test data\n",
+    "X_test[num_col] = scaler.transform(X_test[num_col])\n",
+    "X_test.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2aead6df",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Feature selection\n",
+    "X_test=X_test[rfe_columns_2]\n",
+    "X_test.head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "db13f6a8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Adding constant to the test model.\n",
+    "X_test_SM = sm.add_constant(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "90e12ad9",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Predicting the target variable\n",
+    "y_test_pred = res.predict(X_test_SM)\n",
+    "print(\"\\n The first ten probability value of the prediction are:\\n\",y_test_pred[:10])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "36894181",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_pred = pd.DataFrame(y_test_pred)\n",
+    "y_pred.head()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "16e1c0c6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_pred=y_pred.rename(columns = {0:\"Conv_prob\"})"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "0c401b9e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_test_df = pd.DataFrame(y_test)\n",
+    "y_test_df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "097433d3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_pred_final = pd.concat([y_test_df,y_pred],axis=1)\n",
+    "y_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6c87c3b8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "y_pred_final['test_churn_pred'] = y_pred_final.Conv_prob.map(lambda x: 1 if x>0.54 else 0)\n",
+    "y_pred_final.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "eb217546",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Checking the overall accuracy of the predicted set.\n",
+    "metrics.accuracy_score(y_pred_final.churn, y_pred_final.test_churn_pred)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "642ec138",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Confusion Matrix\n",
+    "confusion2_test = metrics.confusion_matrix(y_pred_final.churn, y_pred_final.test_churn_pred)\n",
+    "print(\"Confusion Matrix\\n\",confusion2_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "55a49fbd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "TP3 = confusion2_test[1,1] # true positive \n",
+    "TN3 = confusion2_test[0,0] # true negatives\n",
+    "FP3 = confusion2_test[0,1] # false positives\n",
+    "FN3 = confusion2_test[1,0] # false negatives\n",
+    "\n",
+    "# Let's see the sensitivity of our logistic regression model\n",
+    "print(\"Sensitivity = \",TP3 / float(TP3+FN3))\n",
+    "\n",
+    "# Let us calculate specificity\n",
+    "print(\"Specificity = \",TN3 / float(TN3+FP3))\n",
+    "\n",
+    "# Calculate false postive rate - predicting churn when customer does not have churned\n",
+    "print(\"False Positive Rate = \",FP3/ float(TN3+FP3))\n",
+    "\n",
+    "# positive predictive value \n",
+    "print (\"Precision = \",TP3 / float(TP3+FP3))\n",
+    "\n",
+    "# Negative predictive value\n",
+    "print (\"True Negative Prediction Rate = \",TN3 / float(TN3 + FN3))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fe5fdb86",
+   "metadata": {},
+   "source": [
+    "###### The accuracy of the predicted model is: 83.0 % The sensitivity of the predicted model is: 80.0 %\n",
+    "\n",
+    "\n",
+    "\n",
+    "###### As the model created is based on a sentivity model, i.e. the True positive rate is given more importance as the actual and prediction of churn by a customer"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "12589448",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ROC curve for the test dataset\n",
+    "\n",
+    "# Defining the variables to plot the curve\n",
+    "fpr, tpr, thresholds = metrics.roc_curve(y_pred_final.churn,y_pred_final.Conv_prob, drop_intermediate = False )\n",
+    "# Plotting the curve for the obtained metrics\n",
+    "draw_roc(y_pred_final.churn,y_pred_final.Conv_prob)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2fe0969c",
+   "metadata": {},
+   "source": [
+    "###### The AUC score for train dataset is 0.90 and the test dataset is 0.87. This model can be considered as a good model."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e26fddf2",
+   "metadata": {},
+   "source": [
+    "## PCA"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bd2a691c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.model_selection import GridSearchCV\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn import metrics\n",
+    "from sklearn.model_selection import KFold\n",
+    "from sklearn.ensemble import RandomForestClassifier\n",
+    "from sklearn.metrics import precision_score, recall_score"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ee895f3f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# PCA\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, train_size=0.7, random_state=1)\n",
+    "\n",
+    "# apply SMOTE to correct class imbalance\n",
+    "from imblearn.over_sampling import SMOTE\n",
+    "sm = SMOTE(sampling_strategy = \"minority\")\n",
+    "X_tr,y_tr = sm.fit_resample(X_train,y_train)\n",
+    "print(X_tr.shape)\n",
+    "print(y_tr.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8ef34598",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# import PCA\n",
+    "from sklearn.decomposition import PCA\n",
+    "pca = PCA(random_state=100)\n",
+    "\n",
+    "# apply PCA on train data\n",
+    "pca.fit(X_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d8e8b1cf",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X_tr_pca = pca.fit_transform(X_tr)\n",
+    "print(X_tr_pca.shape)\n",
+    "\n",
+    "X_test_pca = pca.transform(X_test)\n",
+    "print(X_test_pca.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9d6fa714",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn import metrics\n",
+    "lr_pca = LogisticRegression(C=1e9)\n",
+    "lr_pca.fit(X_tr_pca, y_tr)\n",
+    "\n",
+    "# make the predictions\n",
+    "y_pred = lr_pca.predict(X_test_pca)\n",
+    "\n",
+    "# convert prediction array into a dataframe\n",
+    "y_pred_df = pd.DataFrame(y_pred)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "151cfffb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.metrics import classification_report, confusion_matrix, accuracy_score\n",
+    "\n",
+    "# Printing confusion matrix\n",
+    "print(confusion_matrix(y_test,y_pred))\n",
+    "print(\"Accuracy of the logistic regression model with PCA: \",accuracy_score(y_test,y_pred))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ba919304",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# scree plot to check the variance explained by different PCAs\n",
+    "fig = plt.figure(figsize = (12,8))\n",
+    "plt.plot(np.cumsum(pca.explained_variance_ratio_))\n",
+    "plt.xlabel('no of principal components')\n",
+    "plt.ylabel('explained variance - cumulative')\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "90ab8308",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "np.cumsum(np.round(pca.explained_variance_ratio_, decimals=4)*100)\n",
+    "# 12 columns explains 95% of the variance, lets apply PCA with 12 components"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8aaf53c6",
+   "metadata": {},
+   "source": [
+    "#### From above we can say 12 components are optimal"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d965fa93",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# PCA with 33 components\n",
+    "pca_12 = PCA(n_components=12)\n",
+    "\n",
+    "df_tr_pca_12 = pca_12.fit_transform(X_tr)\n",
+    "print(df_tr_pca_12.shape)\n",
+    "\n",
+    "df_test_pca_12 = pca_12.transform(X_test)\n",
+    "print(df_test_pca_12.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d61f64f1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Let's run the model using the selected variables\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn import metrics\n",
+    "lr_pca1 = LogisticRegression(C=1e9)\n",
+    "lr_pca1.fit(df_tr_pca_12, y_tr)\n",
+    "\n",
+    "# Predicted probabilities\n",
+    "y_pred12 = lr_pca1.predict(df_test_pca_12)\n",
+    "\n",
+    "# Converting y_pred to a dataframe which is an array\n",
+    "df_y_pred = pd.DataFrame(y_pred12)\n",
+    "\n",
+    "print(\"Accuracy with 12 PCAs: \",accuracy_score(y_test,y_pred12))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "add03ab8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "confusion_pca_test = confusion_matrix(y_test,y_pred12)\n",
+    "print(confusion_pca_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "db5c78fa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "TP4 = confusion_pca_test[1,1] # true positive \n",
+    "TN4 = confusion_pca_test[0,0] # true negatives\n",
+    "FP4 = confusion_pca_test[0,1] # false positives\n",
+    "FN4 = confusion_pca_test[1,0] # false negatives\n",
+    "\n",
+    "# Let's see the sensitivity of our logistic regression model\n",
+    "print(\"Sensitivity = \",TP4 / float(TP4+FN4))\n",
+    "\n",
+    "# Let us calculate specificity\n",
+    "print(\"Specificity = \",TN4 / float(TN4+FP4))\n",
+    "\n",
+    "# Calculate false postive rate - predicting churn when customer does not have churned\n",
+    "print(\"False Positive Rate = \",FP4/ float(TN4+FP4))\n",
+    "\n",
+    "# positive predictive value \n",
+    "print (\"Precision = \",TP4 / float(TP4+FP4))\n",
+    "\n",
+    "# Negative predictive value\n",
+    "print (\"True Negative Prediction Rate = \",TN4 / float(TN4 + FN4))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a2ddcf8c",
+   "metadata": {},
+   "source": [
+    "###### Conclusions from the above model:\n",
+    "\n",
+    "\n",
+    "\n",
+    "###### Model has 76% Accuracy 12 features can explain 90% variance in the dataset"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2be1a258",
+   "metadata": {},
+   "source": [
+    "## Decision Tree"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a50adc9f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets create a decision tree now\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, train_size=0.7, random_state=1)\n",
+    "\n",
+    "# apply SMOTE to tackle class imbalance\n",
+    "from imblearn.over_sampling import SMOTE\n",
+    "sm = SMOTE(sampling_strategy = \"minority\")\n",
+    "X_tr,y_tr = sm.fit_resample(X_train,y_train)\n",
+    "print(X_tr.shape)\n",
+    "print(y_tr.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5ff7fb1b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# feature selection using lasso\n",
+    "from sklearn.svm import LinearSVC\n",
+    "from sklearn.feature_selection import SelectFromModel\n",
+    " \n",
+    "svc = LinearSVC(C=0.001, penalty=\"l1\", dual=False).fit(X_tr, y_tr)\n",
+    "svc_model = SelectFromModel(svc, prefit=True)\n",
+    "X_lasso = svc_model.transform(X_tr)\n",
+    "position = svc_model.get_support(indices=True)\n",
+    "\n",
+    "print(X_lasso.shape)\n",
+    "print(position)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a2519a70",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# feature vector for decision tree\n",
+    "lasso_features = list(df.columns[position])\n",
+    "print(\"Lasso Features: \", lasso_features)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "69a4bbf5",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# import decision tree libraries\n",
+    "from sklearn.tree import DecisionTreeClassifier\n",
+    "from sklearn import tree\n",
+    "\n",
+    "# lets create a decision tree with the default hyper parameters except max depth to make the tree readable\n",
+    "dt1 = DecisionTreeClassifier(max_depth=5)\n",
+    "dt1.fit(X_lasso, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3781a41f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets see the classification reort of the model built\n",
+    "from sklearn.metrics import classification_report, confusion_matrix, accuracy_score\n",
+    "\n",
+    "# Model predictions\n",
+    "X_test = pd.DataFrame(data=X_test).iloc[:, position]\n",
+    "y_pred1 = dt1.predict(X_test)\n",
+    "\n",
+    "# classification report\n",
+    "print(classification_report(y_test, y_pred1))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "dd5831ec",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# confusion matrix\n",
+    "print(confusion_matrix(y_test,y_pred1))\n",
+    "# accuracy of the decision tree\n",
+    "print('Decision Tree - Accuracy :',accuracy_score(y_test,y_pred1))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "360e44f4",
+   "metadata": {},
+   "source": [
+    "## Lets fine tune hyperparameters"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a526a6c7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# GridSearchCV to find optimal max_depth\n",
+    "from sklearn.model_selection import KFold\n",
+    "from sklearn.model_selection import GridSearchCV\n",
+    "\n",
+    "\n",
+    "# specify number of folds for k-fold CV\n",
+    "n_folds = 5\n",
+    "\n",
+    "# parameters to build the model on\n",
+    "parameters = {'max_depth': range(1, 40)}\n",
+    "\n",
+    "# instantiate the model\n",
+    "dtree = DecisionTreeClassifier(criterion = \"gini\", \n",
+    "                               random_state = 100)\n",
+    "                               \n",
+    "# fit tree on training data\n",
+    "tree = GridSearchCV(dtree, parameters, \n",
+    "                    cv=n_folds, \n",
+    "                   scoring=\"accuracy\",\n",
+    "                   return_train_score=True)\n",
+    "tree.fit(X_lasso, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ae9a7a4d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# grid search results\n",
+    "score = tree.cv_results_\n",
+    "pd.DataFrame(score).head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "dc49ac32",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# plotting accuracies with max_depth\n",
+    "plt.figure()\n",
+    "plt.plot(score[\"param_max_depth\"], \n",
+    "         score[\"mean_train_score\"], \n",
+    "         label=\"training accuracy\")\n",
+    "plt.plot(score[\"param_max_depth\"], \n",
+    "         score[\"mean_test_score\"], \n",
+    "         label=\"test accuracy\")\n",
+    "plt.xlabel(\"max_depth\")\n",
+    "plt.ylabel(\"Accuracy\")\n",
+    "plt.legend()\n",
+    "plt.show()\n",
+    "\n",
+    "\n",
+    "# max_depth =10 seems to be the optimal one"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "664dcce6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets find optimal value of minimum sample leaf\n",
+    "from sklearn.model_selection import KFold\n",
+    "from sklearn.model_selection import GridSearchCV\n",
+    "\n",
+    "\n",
+    "# specify number of folds for k-fold CV\n",
+    "n_folds = 5\n",
+    "\n",
+    "# parameters to build the model on\n",
+    "parameters = {'min_samples_leaf': range(5, 200, 20)}\n",
+    "\n",
+    "# instantiate the model\n",
+    "dtree = DecisionTreeClassifier(criterion = \"gini\", \n",
+    "                               random_state = 100)\n",
+    "\n",
+    "# fit tree on training data\n",
+    "tree = GridSearchCV(dtree, parameters, \n",
+    "                    cv=n_folds, \n",
+    "                   scoring=\"accuracy\",\n",
+    "                   return_train_score=True)\n",
+    "tree.fit(X_lasso, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5917926f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# grid search results\n",
+    "score = tree.cv_results_\n",
+    "pd.DataFrame(score).head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d20806eb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# plotting accuracies with min_sample_leaf\n",
+    "plt.figure()\n",
+    "plt.plot(score[\"param_min_samples_leaf\"], \n",
+    "         score[\"mean_train_score\"], \n",
+    "         label=\"training accuracy\")\n",
+    "plt.plot(score[\"param_min_samples_leaf\"], \n",
+    "         score[\"mean_test_score\"], \n",
+    "         label=\"test accuracy\")\n",
+    "plt.xlabel(\"min_sample_leaf\")\n",
+    "plt.ylabel(\"Accuracy\")\n",
+    "plt.legend()\n",
+    "plt.show()\n",
+    "\n",
+    "# min_sample_leaf =25 seems to be the optimal one"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b1085106",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets fine tune min sample split now\n",
+    "from sklearn.model_selection import KFold\n",
+    "from sklearn.model_selection import GridSearchCV\n",
+    "\n",
+    "\n",
+    "# specify number of folds for k-fold CV\n",
+    "n_folds = 5\n",
+    "\n",
+    "# parameters to build the model on\n",
+    "parameters = {'min_samples_split': range(5, 200, 20)}\n",
+    "\n",
+    "# instantiate the model\n",
+    "dtree = DecisionTreeClassifier(criterion = \"gini\", \n",
+    "                               random_state = 100)\n",
+    "\n",
+    "# fit tree on training data\n",
+    "tree = GridSearchCV(dtree, parameters, \n",
+    "                    cv=n_folds, \n",
+    "                   scoring=\"accuracy\",\n",
+    "                   return_train_score=True)\n",
+    "tree.fit(X_lasso, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "dbfe3db6",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# scores of GridSearch CV\n",
+    "scores = tree.cv_results_\n",
+    "pd.DataFrame(scores).head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a227478a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# plotting accuracies with min_samples_leaf\n",
+    "plt.figure()\n",
+    "plt.plot(scores[\"param_min_samples_split\"], \n",
+    "         scores[\"mean_train_score\"], \n",
+    "         label=\"training accuracy\")\n",
+    "plt.plot(scores[\"param_min_samples_split\"], \n",
+    "         scores[\"mean_test_score\"], \n",
+    "         label=\"test accuracy\")\n",
+    "plt.xlabel(\"min_samples_split\")\n",
+    "plt.ylabel(\"Accuracy\")\n",
+    "plt.legend()\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b611fbfd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Create the parameter grid \n",
+    "param_grid = {\n",
+    "    'max_depth': range(5, 15, 5),\n",
+    "    'min_samples_leaf': range(25, 175, 50),\n",
+    "    'min_samples_split': range(50, 150, 50),\n",
+    "    'criterion': [\"entropy\", \"gini\"]\n",
+    "}\n",
+    "\n",
+    "n_folds = 5\n",
+    "\n",
+    "# Instantiate the grid search model\n",
+    "dtree = DecisionTreeClassifier()\n",
+    "grid_search = GridSearchCV(estimator = dtree, param_grid = param_grid, \n",
+    "                          cv = n_folds, verbose = 1)\n",
+    "\n",
+    "# Fit the grid search to the data\n",
+    "grid_search.fit(X_lasso, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6ab5089b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# cv results\n",
+    "cv_results = pd.DataFrame(grid_search.cv_results_)\n",
+    "cv_results\n",
+    "# printing the optimal accuracy score and hyperparameters\n",
+    "print(\"Best Accuracy\", grid_search.best_score_)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e039ebad",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print(grid_search.best_estimator_)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d33d3767",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# model with optimal hyperparameters\n",
+    "clf_gini = DecisionTreeClassifier(criterion = \"gini\", \n",
+    "                                  random_state = 100,\n",
+    "                                  max_depth=10, \n",
+    "                                  min_samples_leaf=25,\n",
+    "                                  min_samples_split=50)\n",
+    "clf_gini.fit(X_lasso, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "07ef353d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# accuracy score\n",
+    "print ('Accuracy Score for Decision Tree Final Model :',clf_gini.score(X_test,y_test))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "17e51d8f",
+   "metadata": {},
+   "source": [
+    "## XGBoost\n",
+    "\n",
+    "\n",
+    "\n",
+    "###### Let's finally try XGBoost. The hyperparameters are the same, some important ones being subsample, learning_rate, max_depth etc."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "784e0d9c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import xgboost as xgb\n",
+    "from xgboost import XGBClassifier\n",
+    "from xgboost import plot_importance"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9f6b0c0d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# lets create a decision tree now\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, train_size=0.7, random_state=1)\n",
+    "\n",
+    "# apply SMOTE to tackle class imbalance\n",
+    "from imblearn.over_sampling import SMOTE\n",
+    "sm = SMOTE(sampling_strategy = \"minority\")\n",
+    "X_tr,y_tr = sm.fit_resample(X_train,y_train)\n",
+    "print(X_tr.shape)\n",
+    "print(y_tr.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "72303889",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import re\n",
+    "\n",
+    "regex = re.compile(r\"\\[|\\]|<\", re.IGNORECASE)\n",
+    "\n",
+    "X_tr.columns = [regex.sub(\"_\", col) if any(x in str(col) for x in set(('[', ']', '<'))) else col for col in X_tr.columns.values]\n",
+    "X_test.columns = [regex.sub(\"_\", col) if any(x in str(col) for x in set(('[', ']', '<'))) else col for col in X_test.columns.values]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d5b7b3d2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# fit model on training data with default hyperparameters\n",
+    "model = XGBClassifier()\n",
+    "model.fit(X_tr, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "3c64e3d1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# evaluate predictions\n",
+    "y_pred = model.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1160ea23",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import itertools\n",
+    "from sklearn.metrics import recall_score,precision_score,roc_auc_score,f1_score,accuracy_score,confusion_matrix\n",
+    "\n",
+    "def plot_confusion_matrix(cm):\n",
+    "    \"\"\"\n",
+    "    This function prints and plots the confusion matrix.\n",
+    "    \"\"\"\n",
+    "    classes=[0,1]\n",
+    "    cmap=plt.cm.Blues\n",
+    "    plt.imshow(cm, interpolation='nearest', cmap=cmap)\n",
+    "    plt.title('Confusion matrix')\n",
+    "    plt.colorbar()\n",
+    "    tick_marks = np.arange(len(classes))\n",
+    "    plt.xticks(tick_marks, classes, rotation=0)\n",
+    "    plt.yticks(tick_marks, classes)\n",
+    "    thresh = cm.max() / 2.\n",
+    "    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):\n",
+    "        plt.text(j, i, cm[i, j],horizontalalignment=\"center\",\n",
+    "                 color=\"white\" if cm[i, j] > thresh else \"black\")\n",
+    "    plt.tight_layout()\n",
+    "    plt.ylabel('True label')\n",
+    "    plt.xlabel('Predicted label')\n",
+    "    \n",
+    "def print_model_metrics(y_test,y_pred,model_name):\n",
+    "    print(\" Model Stats Scores Summary : \")\n",
+    "    cp = confusion_matrix(y_test,y_pred)\n",
+    "    plt.figure()\n",
+    "    plot_confusion_matrix(cp)\n",
+    "    plt.show()\n",
+    "    \n",
+    "    accuracy = round(accuracy_score(y_test,y_pred),2)\n",
+    "    recall = round(recall_score(y_test,y_pred),2)\n",
+    "    precision = round(precision_score(y_test,y_pred),2)\n",
+    "    auc = round(roc_auc_score(y_test,y_pred),2)\n",
+    "    f1 = round(f1_score(y_test,y_pred),2)\n",
+    "    \n",
+    "    data = [[model_name,accuracy,recall,precision,auc,f1]] \n",
+    "    df_cf = pd.DataFrame(data, columns = ['Model', 'Accuracy','Precision','Recall','AUC','F1'])\n",
+    "\n",
+    "    return df_cf "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "943b4115",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print_model_metrics(y_test, y_pred ,'XGBoost (Default)')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fa21526a",
+   "metadata": {},
+   "source": [
+    "##### The roc_auc in this case is about 74% with default hyperparameters.\n",
+    "\n",
+    "##### Let's now try tuning the hyperparameters using k-fold CV. We'll then use grid search CV to find the optimal values of hyperparameters"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "bb1b1a7e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# hyperparameter tuning with XGBoost\n",
+    "# creating a KFold object \n",
+    "folds = 5\n",
+    "# specify range of hyperparameters\n",
+    "param_grid = {'learning_rate': [0.1,0.2,0.3], \n",
+    "             'subsample': [0.3,0.4,0.5]}          \n",
+    "# specify model\n",
+    "xgb_model = XGBClassifier(max_depth=2, n_estimators=200)\n",
+    "\n",
+    "# set up GridSearchCV()\n",
+    "model_cv = GridSearchCV(estimator = xgb_model, \n",
+    "                        param_grid = param_grid, \n",
+    "                        scoring= 'accuracy', # accuracy\n",
+    "                        cv = folds, \n",
+    "                        n_jobs = -1,\n",
+    "                        verbose = 1,\n",
+    "                        return_train_score=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9b257f4b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# fit the model\n",
+    "model_cv.fit(X_tr, y_tr)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "49f69a27",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "cv_results_xboost = pd.DataFrame(model_cv.cv_results_)\n",
+    "cv_results_xboost['param_learning_rate'] = cv_results_xboost['param_learning_rate'].astype('float')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "08c7b9e3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# printing the optimal accuracy score and hyperparameters\n",
+    "print('We can get accuracy of **'+str(round(model_cv.best_score_,2))+'** using '+str(model_cv.best_params_))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "049ac011",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def plot_for_xboost(param_grid,cv_results):\n",
+    "    plt.figure(figsize=(18,5))\n",
+    "    for n, subsample in enumerate(param_grid['subsample']):\n",
+    "    # subplot 1/n\n",
+    "        plt.subplot(1,len(param_grid['subsample']), n+1)\n",
+    "        df = cv_results[cv_results['param_subsample']==subsample]\n",
+    "        plt.plot(df[\"param_learning_rate\"], df[\"mean_test_score\"])\n",
+    "        plt.plot(df[\"param_learning_rate\"], df[\"mean_train_score\"])\n",
+    "        plt.xlabel('learning_rate')\n",
+    "        plt.ylabel('AUC')\n",
+    "        plt.title(\"subsample={0}\".format(subsample))\n",
+    "        plt.ylim([0.60, 1])\n",
+    "        plt.legend(['test score', 'train score'], loc='lower right')\n",
+    "        plt.xscale('log')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "086c6995",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "param_grid1 = {'learning_rate': [0.1,0.2,0.3], 'subsample': [0.3,0.4,0.5]}  \n",
+    "plot_for_xboost(param_grid1,cv_results_xboost)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "954e1465",
+   "metadata": {},
+   "source": [
+    "##### Analysis: The results show that a subsample size of 0.3 and learning_rate of about 0.1 seems optimal. Also, XGBoost has resulted in the highest ROC AUC obtained (across various hyperparameters)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6ce2d5a8",
+   "metadata": {},
+   "source": [
+    "### Let's build a final model with the chosen hyperparameters.\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "38973a55",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# chosen hyperparameters\n",
+    "# 'objective':'binary:logistic' outputs probability rather than label, which we need for auc\n",
+    "\n",
+    "param = {'learning_rate': 0.1,\n",
+    "          'max_depth': 2, \n",
+    "          'n_estimators':200,\n",
+    "          'subsample':0.3,\n",
+    "         'objective':'binary:logistic'}\n",
+    "\n",
+    "\n",
+    "# fit model on training data\n",
+    "\n",
+    "model = XGBClassifier(max_depth=2, n_estimators=200)\n",
+    "model.set_params(**param)\n",
+    "model.fit(X_tr, y_tr)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "97b1f905",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# evaluate predictions\n",
+    "y_pred = model.predict(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7ca8464d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print_model_metrics(y_test, y_pred,'XGBoost (Hyper Tuned)')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a3fb8f6a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# plot\n",
+    "plt.bar(range(len(model.feature_importances_)), model.feature_importances_)\n",
+    "plt.show()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8634ceee",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print(\"Important features ...\")\n",
+    "plt.figure(figsize=(6,4))\n",
+    "\n",
+    "col = list(X_tr.columns)\n",
+    "df_pca = pd.DataFrame({'PC1':pca.components_[0],'PC2':pca.components_[1], 'PC3':pca.components_[2],'Feature':col})\n",
+    "df_pca.head(15)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4aab5525",
+   "metadata": {},
+   "source": [
+    "## Recommendations\n",
+    "\n",
+    "\n",
+    "### Business Insights"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2b10dbf2",
+   "metadata": {},
+   "source": [
+    "##### Less number of high value customer are churing but for last 6 month no new high valued cusotmer is onboarded which is concerning and company should concentrate on that aspect.\n",
+    "\n",
+    "##### Customers with less than 4 years of tenure are more likely to churn and company should concentrate more on that segment by rolling out new schems to that group.\n",
+    "\n",
+    "##### Average revenue per user seems to be most important feature in determining churn prediction.\n",
+    "\n",
+    "##### Incoming and Outgoing Calls on romaing for 8th month are strong indicators of churn behaviour\n",
+    "\n",
+    "##### Local Outgoing calls made to landline , fixedline , mobile and call center provides a strong indicator of churn behaviour.\n",
+    "\n",
+    "##### Better 2G/3G area coverage where 2G/3G services are not good, it's strong indicator of churn behaviour."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e0f7598f",
+   "metadata": {},
+   "source": [
+    "## Model Insights"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6e3c398d",
+   "metadata": {},
+   "source": [
+    "###### Logistic Regression with RFE produces an accuracy of 87% Logistic Regression with PCA produces an accuracy of 76% Decision Tree without Hyper Parameter Tuning produces an accuracy of 89% Decision Tree with Hyper Parameter Tuning produces an accuracy of 89% XGBoost without Hyper Parameter Tuning produces an accuracy of 93% XGBoost with Hyper Parameter Tuning produces an accuracy of 92%\n",
+    "\n",
+    "\n",
+    "##### Thus making XGBoost with Hyper Parameter Tuning the best model as the default could be overfit"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "66278648",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ea886a93",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
